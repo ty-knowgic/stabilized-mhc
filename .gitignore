@@ -20,3 +20,10 @@ ENV/
 # OS generated files
 .DS_Store
 Thumbs.db
+# TeX intermediate files
+*.aux
+*.log
+*.out
+*.synctex.gz
+*.fls
+*.fdb_latexmk
