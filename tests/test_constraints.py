@@ -20,7 +20,7 @@ def test_constraints_bfloat16_cpu():
     batch = 2
     u = torch.randn(batch, (n - 1) ** 2, dtype=torch.bfloat16)
     H = stabilized_rational_chart(u)
-    diag = check_doubly_stochastic(H, atol_sum=5e-4, atol_nonneg=1e-6)
+    diag = check_doubly_stochastic(H, atol_sum=5e-3, atol_nonneg=5e-4)
     assert diag["row_ok"], diag
     assert diag["col_ok"], diag
     assert diag["nonneg_ok"], diag

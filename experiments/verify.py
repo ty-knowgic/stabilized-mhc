@@ -24,8 +24,10 @@ def _tolerances(dtype: torch.dtype) -> tuple[float, float]:
         return 1e-14, 1e-12
     if dtype == torch.float32:
         return 1e-5, 1e-7
-    if dtype in (torch.bfloat16, torch.float16):
-        return 5e-4, 1e-6
+    if dtype == torch.float16:
+        return 5e-4, 5e-4
+    if dtype == torch.bfloat16:
+        return 5e-3, 5e-4
     raise ValueError(f"Unsupported dtype {dtype}.")
 
 

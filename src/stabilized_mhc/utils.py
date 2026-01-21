@@ -24,12 +24,17 @@ def check_doubly_stochastic(
     H: torch.Tensor, *, atol_sum: float, atol_nonneg: float
 ) -> dict:
     """Return diagnostic metrics for doubly stochastic constraints."""
-    row_sums = H.sum(dim=-1)
-    col_sums = H.sum(dim=-2)
+    if H.dtype in (torch.float16, torch.bfloat16):
+        H_eval = H.float()
+    else:
+        H_eval = H
+
+    row_sums = H_eval.sum(dim=-1)
+    col_sums = H_eval.sum(dim=-2)
 
     max_row_err = (row_sums - 1.0).abs().max().item()
     max_col_err = (col_sums - 1.0).abs().max().item()
-    min_entry = H.min().item()
+    min_entry = H_eval.min().item()
 
     return {
         "max_row_err": max_row_err,

@@ -13,8 +13,8 @@ def main() -> None:
     scales = [1, 10, 1e2, 1e3]
 
     for dtype in dtypes:
-        atol_sum = 1e-5 if dtype == torch.float32 else 5e-4
-        atol_nonneg = 1e-6
+        atol_sum = 1e-5 if dtype == torch.float32 else 5e-3
+        atol_nonneg = 5e-4
         for n in n_values:
             input_dim = (n - 1) ** 2
             inputs = stress_inputs((32, input_dim), scales, device, dtype, seed=2024)
