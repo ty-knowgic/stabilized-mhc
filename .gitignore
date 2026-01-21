@@ -1,19 +1,9 @@
-# Python
-__pycache__/
-*.py[cod]
-*.class
-
-# Environments
-venv/
-env/
-.env
-
-# IDE
-.vscode/
-.idea/
-
-# OS
+__MACOSX/
 .DS_Store
-
-# Jupyter
-.ipynb_checkpoints
+.venv/
+dist/
+build/
+*.egg-info/
+__pycache__/
+.pytest_cache/
+.mypy_cache/

@@ -5,8 +5,8 @@ import math
 def stabilized_rational_chart(u, epsilon=1e-6, lambd=1.0, smoothness=1.0):
     """
     Stabilized Piecewise-Rational Chart (SPRC)
-    
-    A deterministic, O(1) mapping from R^{(N-1)^2} to the Birkhoff Polytope B_N.
+
+    A deterministic, iteration-free mapping from R^{(N-1)^2} to the Birkhoff Polytope B_N.
     
     Args:
         u (torch.Tensor): Input parameters of shape (Batch, (N-1)^2).
