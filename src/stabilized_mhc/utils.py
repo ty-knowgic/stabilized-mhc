@@ -1,70 +1,58 @@
+"""Utility helpers for diagnostics and stress testing."""
+
+from __future__ import annotations
+
+import math
+from typing import Iterable, List, Tuple
+
 import torch
-import torch.nn as nn
-from .sprc import stabilized_rational_chart
 
 
-def sinkhorn_knopp(u_raw, n_iters=20):
-    """
-    Standard Sinkhorn-Knopp algorithm for comparison.
-    u_raw: (Batch, N, N)
-    """
-    matrix = torch.exp(u_raw)
-    for _ in range(n_iters):
-        matrix = matrix / (matrix.sum(dim=2, keepdim=True) + 1e-6)
-        matrix = matrix / (matrix.sum(dim=1, keepdim=True) + 1e-6)
-    return matrix
+def infer_n_from_u(u_dim: int) -> int:
+    """Infer N from the flattened input dimension where (N-1)^2 == u_dim."""
+    if u_dim <= 0:
+        raise ValueError(f"u_dim must be positive, got {u_dim}.")
+    m = int(math.isqrt(u_dim))
+    if m * m != u_dim:
+        raise ValueError(
+            f"Input dimension {u_dim} must be a perfect square (N-1)^2."
+        )
+    return m + 1
 
 
-class ToyMHCLayer(nn.Module):
-    """
-    A toy layer to simulate Manifold-Constrained Hyper-Connections (mHC).
-    Used for checking learning dynamics.
-    """
+def check_doubly_stochastic(
+    H: torch.Tensor, *, atol_sum: float, atol_nonneg: float
+) -> dict:
+    """Return diagnostic metrics for doubly stochastic constraints."""
+    row_sums = H.sum(dim=-1)
+    col_sums = H.sum(dim=-2)
 
-    def __init__(self, dim, n=4, method="proposal"):
-        super().__init__()
-        self.dim = dim
-        self.n = n
-        self.method = method
+    max_row_err = (row_sums - 1.0).abs().max().item()
+    max_col_err = (col_sums - 1.0).abs().max().item()
+    min_entry = H.min().item()
 
-        # Dimension check
-        if dim % n != 0:
-            raise ValueError(f"Dimension {dim} must be divisible by n={n}")
+    return {
+        "max_row_err": max_row_err,
+        "max_col_err": max_col_err,
+        "min_entry": min_entry,
+        "row_ok": max_row_err <= atol_sum,
+        "col_ok": max_col_err <= atol_sum,
+        "nonneg_ok": min_entry >= -atol_nonneg,
+    }
 
-        # Parameter initialization
-        if method == "proposal":
-            # SPRC takes (N-1)^2 params
-            input_dim = (n - 1) ** 2
-            self.param = nn.Parameter(torch.randn(1, input_dim) * 0.1)
-        else:
-            # Sinkhorn takes NxN params
-            self.param = nn.Parameter(torch.randn(1, n, n) * 0.1)
 
-        # Learnable linear layer
-        self.linear = nn.Linear(dim, dim)
-        self.norm = nn.LayerNorm(dim)
-
-    def forward(self, x):
-        # x: (B, Seq, Dim)
-        B_size = x.size(0)
-
-        # Generate connection matrix H
-        if self.method == "proposal":
-            u_exp = self.param.expand(B_size, -1)
-            H = stabilized_rational_chart(u_exp)  # (B, n, n)
-        else:
-            u_exp = self.param.expand(B_size, -1, -1)
-            H = sinkhorn_knopp(u_exp)  # (B, n, n)
-
-        # mHC-like mixing operation
-        chunk_dim = self.dim // self.n
-        # Split: (B, S, n, D/n)
-        x_split = x.view(B_size, -1, self.n, chunk_dim)
-
-        H = H.unsqueeze(1)  # (B, 1, n, n)
-
-        # Einstein Summation: batch(b), seq(s), out_mix(i), in_mix(j), dim(d)
-        x_mixed = torch.einsum("b s j d, b s i j -> b s i d", x_split, H)
-        x_mixed = x_mixed.reshape(B_size, -1, self.dim)
-
-        return self.norm(x_mixed + self.linear(x))
+def stress_inputs(
+    shape: Tuple[int, int],
+    scales: Iterable[float],
+    device: torch.device | str,
+    dtype: torch.dtype,
+    seed: int,
+) -> List[Tuple[float, torch.Tensor]]:
+    """Generate scaled random inputs for stress testing."""
+    gen = torch.Generator(device="cpu").manual_seed(seed)
+    inputs: List[Tuple[float, torch.Tensor]] = []
+    for scale in scales:
+        base = torch.randn(*shape, generator=gen, dtype=torch.float32)
+        u = (base * float(scale)).to(device=device, dtype=dtype)
+        inputs.append((float(scale), u))
+    return inputs
