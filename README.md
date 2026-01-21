@@ -1,35 +1,26 @@
-# Stabilized Piecewise-Rational Charts (SPRC) for mHC
+# Stabilized-mHC (SPRC)
+
+**A Deterministic, O(1) Replacement for Sinkhorn in DeepSeek-V3/R1 mHC.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![PyTorch](https://img.shields.io/badge/PyTorch-%23EE4C2C.svg?style=flat&logo=PyTorch&logoColor=white)](https://pytorch.org/)
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://github.com/ty-knowgic/stabilized-mhc/blob/main/experiments/reproduction_demo.ipynb)
+[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 
-> **A deterministic, iteration-free, and mathematically exact replacement for Sinkhorn-based Manifold-Constrained Hyper-Connections (mHC).**
+**SPRC (Stabilized Piecewise-Rational Chart)** provides a mathematically exact, iteration-free mapping from $\mathbb{R}^{(N-1)^2}$ to the Birkhoff Polytope $\mathcal{B}_N$ (Doubly Stochastic Matrices).
 
-DeepSeek-V3 introduced mHC to preserve the identity mapping property in expanded residual streams. However, the standard implementation relies on the iterative Sinkhorn-Knopp algorithm, which introduces non-deterministic latency and memory bandwidth saturation due to repeated read/write cycles.
+It eliminates the iterative overhead and non-deterministic latency of the Sinkhorn-Knopp algorithm used in [DeepSeek-V3](https://github.com/deepseek-ai/DeepSeek-V3), enabling faster and stable training for Manifold-Constrained Hyper-Connections (mHC).
 
-**SPRC** solves this algebraically via **Smooth Parametrization**, providing a constant-time ($O(1)$) solution suitable for high-throughput training and real-time edge inference.
+<p align="center">
+  <img src="assets/loss_convergence_n8.png" width="600" alt="Training Convergence N=8">
+  <br>
+  <em>Figure: SPRC matches Sinkhorn's learning dynamics exactly while being 2.5x faster end-to-end (N=8, Training).</em>
+</p>
 
-## 🚀 Key Performance Results
+## 🚀 Key Features
 
-Benchmarks performed on NVIDIA Tesla T4 GPU (Batch size 65,536).
-
-| Method | Kernel Time | Speedup | End-to-End Training | Latency Profile |
-| :--- | :--- | :--- | :--- | :--- |
-| Sinkhorn ($t=20$) | 15.43 ms | 1.0x | 1.0x | Variable (Iterative) |
-| **SPRC (Ours)** | **1.16 ms** | **13.3x** ⚡ | **2.53x** 🚀 | **Deterministic ($O(1)$)** |
-
-### Exact Convergence
-SPRC matches the learning dynamics of Sinkhorn almost perfectly, ensuring no loss in model expressivity while stabilizing the training trajectory.
-
-![Loss Convergence](assets/loss_plot.png)
-
-## 💡 Why Use SPRC?
-
-1.  **Deterministic Latency:** Eliminates the iterative loop ($t_{max}=20$), guaranteeing constant execution time. Critical for real-time applications and reducing jitter in distributed training.
-2.  **Minimal Memory Traffic:** Removes the intermediate memory read/write cycles required by Sinkhorn iterations, significantly reducing memory bandwidth pressure.
-3.  **Mathematically Exact:** Guarantees **Doubly Stochastic** (row/col sum = 1) and **Non-Negative** constraints by construction ($<10^{-15}$ precision) using a smooth tropical norm approach.
-4.  **Differentiable:** Fully differentiable formulation using `LogSumExp` and `tanh` saturation, ensuring stable gradients for backpropagation.
+* **⚡ High Performance:** ~13x faster kernel speed on T4 GPU compared to Sinkhorn (N=4).
+* **🌐 N-Dimensional:** Supports arbitrary dimensions ($N=4, 8, 16, \dots$). Automatically detects $N$ from input size.
+* **⏱️ Deterministic:** $O(1)$ complexity with zero iteration jitter. Critical for real-time edge AI.
+* **🧮 Exact Constraints:** Guarantees row/column sums $\approx 1.0$ within floating-point precision ($10^{-15}$).
 
 ## 📦 Installation
 
@@ -39,58 +30,79 @@ cd stabilized-mhc
 pip install -r requirements.txt
 ```
 
-## 🛠️ Usage
+## 💻 Usage
 
-SPRC is designed as a drop-in replacement for mHC layers in PyTorch.
+SPRC is implemented as a standalone PyTorch function. You can replace your Sinkhorn call directly.
 
 ```python
 import torch
 from src.sprc import stabilized_rational_chart
 
-# Input parameters (Batch, 9) for n=4 mHC
-u = torch.randn(64, 9, device='cuda', requires_grad=True)
+# Example for DeepSeek-V3 standard (N=4)
+# Input dimension must be (N-1)^2. For N=4, dim=9.
+u = torch.randn(32, 9).cuda() 
 
-# Generate Doubly Stochastic Matrix H (Batch, 4, 4)
-# No loop, No approximation error.
-H = stabilized_rational_chart(u)
+# Get 4x4 Doubly Stochastic Matrices
+H = stabilized_rational_chart(u) 
 
-print(H.shape) # torch.Size([64, 4, 4])
+print(H.shape) # torch.Size([32, 4, 4])
 ```
 
-## 🧪 Reproduction
+### Supporting General N
 
-You can reproduce the benchmark results and training dynamics using the provided scripts:
+The code automatically detects $N$. For $N=8$, provide inputs of size $(8-1)^2 = 49$.
 
+```python
+# Example for N=8
+u_large = torch.randn(32, 49).cuda()
+H_large = stabilized_rational_chart(u_large)
+print(H_large.shape) # torch.Size([32, 8, 8])
+```
+
+## 📊 Reproduction & Experiments
+
+We provide a suite of scripts in `experiments/` to verify and benchmark the algorithm.
+
+### 1. Mathematical Verification
+Verify that SPRC satisfies Doubly Stochastic constraints and is fully differentiable.
 ```bash
-# Run speed benchmark
+python experiments/verify.py
+# Output: [PASS] Constraints OK. [PASS] Differentiable.
+```
+
+### 2. Speed Benchmark
+Compare kernel execution time against Sinkhorn.
+(Automatically detects CUDA / MPS / CPU)
+```bash
 python experiments/benchmark.py
-
-# Run numerical verification
-python experiments/verify_sprc.py
 ```
 
-Or open the notebook in `experiments/` to explore the training dynamics interactively.
-
-## 📜 Technical Report
-
-For mathematical proofs (Exactness, Non-negativity) and detailed analysis, please refer to the attached Technical Report:
-
-[**📄 Read the Technical Report (PDF)**](./technical_report.pdf)
-
-## Citation
-
-If you use this implementation, please cite:
-
-```bibtex
-@techreport{yamaguchi2026sprc,
-  title={Efficient Manifold-Constrained Hyper-Connections via Smooth Algebraic Parametrization},
-  author={Yamaguchi, Tetsu},
-  institution={Knowgic Technology},
-  year={2026},
-  url={[https://github.com/ty-knowgic/stabilized-mhc](https://github.com/ty-knowgic/stabilized-mhc)}
-}
+### 3. Learning Dynamics Check
+Train a toy mHC layer to verify that SPRC learns exactly like Sinkhorn.
+Generates the convergence plot in `assets/`.
+```bash
+python experiments/visualize.py
 ```
+
+## 📜 Algorithm Details
+
+Unlike Sinkhorn which solves the constraints iteratively:
+$$ \min_{P \in \mathcal{U}(r, c)} \langle P, -U \rangle - \epsilon H(P) $$
+
+SPRC constructs the matrix algebraically using a **Smooth Tropical Norm** and **Piecewise-Rational Chart**:
+
+1.  **Tangent Projection:** Map $\mathbb{R}^{(N-1)^2}$ to zero-sum matrix $V$.
+2.  **Tropical Stabilization:** Calculate distance to the polytope boundary using `LogSumExp`.
+3.  **Rational Map:** $H = J_N + \frac{V}{m(V) + \epsilon}$
+
+See `src/sprc.py` for the implementation details.
+
+## 🤝 Contributing
+
+Open to PRs! We are especially interested in:
+* FPGA / Verilog implementations.
+* Integration tests with full LLM training pipelines.
 
 ## License
 
-This project is licensed under the MIT License.
+MIT License.

@@ -3,27 +3,17 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-# Jupyter Notebook checkpoints
-.ipynb_checkpoints
-
 # Environments
-.env
-.venv
-env/
 venv/
-ENV/
+env/
+.env
 
-# IDE settings
+# IDE
 .vscode/
 .idea/
 
-# OS generated files
+# OS
 .DS_Store
-Thumbs.db
-# TeX intermediate files
-*.aux
-*.log
-*.out
-*.synctex.gz
-*.fls
-*.fdb_latexmk
+
+# Jupyter
+.ipynb_checkpoints
