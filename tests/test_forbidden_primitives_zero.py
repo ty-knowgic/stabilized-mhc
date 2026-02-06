@@ -18,6 +18,9 @@ def _resolve_primitives_path() -> str:
     env_path = os.environ.get("PRIMITIVES_PATH")
     if env_path:
         return os.path.abspath(env_path)
+    fixture = os.path.join(ROOT_DIR, "demo", "primitives_fixture.yaml")
+    if os.path.exists(fixture):
+        return os.path.abspath(fixture)
     parent = os.path.abspath(os.path.join(ROOT_DIR, ".."))
     candidates = glob.glob(os.path.join(parent, "*", "demo_outputs", "primitives.yaml"))
     if not candidates:

@@ -1,0 +1,10 @@
+# Minimal primitives fixture for CI when PRIMITIVES_PATH is not set.
+allowed_primitives:
+- human_confirm
+- limited_speed
+- sensor_health_check
+- tool_call_allowlist
+forbidden_primitives:
+- aggressive_accel
+- high_speed_follow
+- open_tool_call
